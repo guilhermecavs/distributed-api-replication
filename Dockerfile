@@ -1,7 +1,7 @@
 # Dockerfile — Build multi-stage para imagem mínima de produção
 
 # ── Estágio 1: compilação ──────────────────────────────────────────────────────
-FROM rust:1.78-slim AS builder
+FROM rust:1.90-slim-bookworm AS builder
 
 WORKDIR /app
 

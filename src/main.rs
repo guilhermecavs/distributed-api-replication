@@ -6,8 +6,12 @@
 //   BACKUP_URL  → URL do backup, ex: http://backup:8081  (só necessário no primário)
 
 use axum::{
+    extract::{Request, State},
+    http::StatusCode,
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::{get, post},
-    Router,
+    Json, Router,
 };
 use std::{env, net::SocketAddr, sync::Arc};
 use tokio::sync::RwLock;
@@ -69,6 +73,7 @@ async fn main() {
         .route("/pedidos",          get(api::listar_pedidos).post(api::criar_pedido))
         .route("/interno/replicar", post(api::replicar))
         .route("/admin/falha",      post(api::simular_falha))
+        .route_layer(middleware::from_fn_with_state(state.clone(), rejeitar_se_em_falha))
         .layer(CorsLayer::permissive())
         .with_state(state);
 
@@ -77,4 +82,22 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+/// Com a falha simulada, o nó responde 503 em todas as rotas. O Nginx só troca de
+/// servidor quando a própria requisição falha (proxy_next_upstream http_503), então
+/// não basta o /health retornar 503.
+async fn rejeitar_se_em_falha(
+    State(state): State<Arc<AppState>>,
+    req: Request,
+    next: Next,
+) -> Response {
+    if !*state.alive.read().await {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "status": "falha simulada", "no": state.role })),
+        )
+            .into_response();
+    }
+    next.run(req).await
 }

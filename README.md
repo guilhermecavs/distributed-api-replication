@@ -29,7 +29,7 @@
 ## Requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) e Docker Compose
-- **OU** Rust 1.78+ e `cargo` (para rodar sem Docker)
+- **OU** Rust 1.90+ e `cargo` (para rodar sem Docker)
 
 ## Compilação e Execução
 
@@ -37,8 +37,8 @@
 
 ```bash
 # Clonar o repositório
-git clone https://github.com/SEU_USUARIO/projeto-sd
-cd projeto-sd
+git clone https://github.com/guilhermecavs/distributed-api-replication
+cd distributed-api-replication
 
 # Subir todos os serviços (Nginx + primário + backup)
 docker compose up --build
@@ -106,7 +106,7 @@ curl -X POST http://localhost/clientes \
 # 2. Simular falha
 curl -X POST http://localhost/admin/falha
 
-# 3. O Nginx detecta 503 no /health e redireciona para o backup
+# 3. O primário passa a responder 503 e o Nginx redireciona para o backup
 curl http://localhost/clientes
 # → campo "no" mostra "backup", e os dados estão presentes (replicação funcionou)
 
@@ -117,7 +117,7 @@ docker compose restart primario
 ## Estrutura do Projeto
 
 ```
-projeto-sd/
+distributed-api-replication/
 ├── src/
 │   ├── main.rs          # Inicialização, roteamento e estado global
 │   ├── api.rs           # Handlers HTTP (rotas)
@@ -128,6 +128,8 @@ projeto-sd/
 │   └── nginx.conf       # Gateway com failover passivo
 ├── Dockerfile           # Build multi-stage (imagem mínima)
 ├── docker-compose.yml   # Orquestração dos 3 contêineres
+├── docs/
+│   └── relatorio_trabalho_final.docx
 └── README.md
 ```
 
@@ -138,5 +140,5 @@ projeto-sd/
 | Consistência Forte | `src/sync.rs` — primário aguarda ACK antes de responder |
 | Replicação Primário-Backup | `src/api.rs` + `src/sync.rs` |
 | Tolerância a Falhas | `nginx.conf` — `proxy_next_upstream` + `backup` flag |
-| Detecção de Falha | `/health` retorna 503 → Nginx redireciona automaticamente |
-| Simulação de Falha | `POST /admin/falha` muda flag `alive` para false |
+| Detecção de Falha | nó em falha responde 503 → Nginx redireciona automaticamente |
+| Simulação de Falha | `POST /admin/falha` muda flag `alive` para false (middleware em `src/main.rs`) |
